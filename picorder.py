@@ -594,29 +594,7 @@ READING_INTERVAL = 0.1
 beats = []
 beats_to_capture = 5
 pulse = False
-timer = 0
-while True:
-	reading = readadc(PIN_EPULSE, SPICLK, SPIMOSI, SPIMISO, SPICS)
-
-	for i in range(int(reading / 100)):
-		print ".",
-
-	if (reading > THRESH):
-		if not pulse:
-			pulse = True
-			print "Beat"
-			if len(beats) == beats_to_capture:
-				print computeHeartrate(beats)
-				beats.pop(0)
-			beats.append(timer)
-		else:
-			print ""
-	else:
-		pulse = False
-		print ""
-
-	time.sleep(READING_INTERVAL)
-	timer = timer + READING_INTERVAL
+pulse_timer = 0
 
 #############################################################
 # Start-up routine
@@ -651,7 +629,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 0
+	operation = 13
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
 
@@ -726,6 +704,30 @@ if __name__ == "__main__":
 				readings = readSystemTemperatures()
 				display("System temperatures", readings[0], readings[1], "")
 				time.sleep(0.5)
+
+			elif operation == 13:
+				reading = readadc(PIN_EPULSE, SPICLK, SPIMOSI, SPIMISO, SPICS)
+
+				#for i in range(int(reading / 100)):
+					#print ".",
+
+				if (reading > THRESH):
+					if not pulse:
+						pulse = True
+						#print "Beat"
+						if len(beats) == beats_to_capture:
+							display("Heartrate", str(computeHeartrate(beats)), "", "")
+							beats.pop(0)
+						beats.append(pulse_timer)
+					else:
+						#print ""
+						pass
+				else:
+					pulse = False
+					#print ""
+
+				time.sleep(READING_INTERVAL)
+				pulse_timer = pulse_timer + READING_INTERVAL
 
 			#elif operation == 13:
 			#	reading = readLastTweet()
