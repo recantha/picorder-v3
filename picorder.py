@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from __future__ import division
+from EasyPulse import EasyPulse
 import RPi.GPIO as GPIO
 from PyComms import hmc5883l
 from PyComms import mpu6050
@@ -17,7 +18,7 @@ from datetime import datetime
 from gps import *
 from Adafruit_BMP085 import BMP085
 
-LCD_ENABLED=0
+LCD_ENABLED = True
 
 
 ###############################################################
@@ -500,8 +501,9 @@ except:
 	pass
 
 ###############################################################
-print "Picorder version 3"
-print "Michael Horne - July 2013"
+picorder_version_no = "10"
+print "Picorder version " + picorder_version_no
+print "Michael Horne - October 2013"
 print "Using RPi.GPIO version " + GPIO.VERSION
 
 time_stamp = time.time()
@@ -573,42 +575,23 @@ PIN_EPULSE = 6
 # TMP102 temperature sensor
 tmp102 = TMP102.TMP102(0x48)
 
-# Easy Pulse
-def computeHeartrate(beats):
-	intervals = []
-	for i in range(1, len(beats)):
-		intervals.append(beats[i]-beats[i-1])
+easypulse = EasyPulse()
 
-	# Take off the top and bottom
-	intervals.sort()
-	intervals.pop(0)
-	intervals.pop(len(intervals)-1)
 
-	average_interval = sum(intervals) / len(intervals)
-	heartrate = 60 / average_interval
-
-	return heartrate
-
-THRESH=1010
-READING_INTERVAL = 0.1
-beats = []
-beats_to_capture = 5
-pulse = False
-pulse_timer = 0
 
 #############################################################
 # Start-up routine
 
-display("####################", "Picorder v3", "Starting up...", "####################")
+display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
 time.sleep(0.5)
 
-display("####################", "Picorder v3", session_id, "####################")
+display("####################", "Picorder v" + picorder_version_no, session_id, "####################")
 time.sleep(0.5)
 
 # GPS
 ENABLE_GPS = True
 if ENABLE_GPS:
-	display("####################", "Picorder v3", "Initialising GPS", "####################")
+	display("####################", "Picorder v" + picorder_version_no, "Initialising GPS", "####################")
 	os.system("./enable_gps.sh")
 	time.sleep(2)
 	gpsd = None
@@ -629,7 +612,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 13
+	operation = 0
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
 
@@ -706,28 +689,9 @@ if __name__ == "__main__":
 				time.sleep(0.5)
 
 			elif operation == 13:
-				reading = readadc(PIN_EPULSE, SPICLK, SPIMOSI, SPIMISO, SPICS)
-
-				#for i in range(int(reading / 100)):
-					#print ".",
-
-				if (reading > THRESH):
-					if not pulse:
-						pulse = True
-						#print "Beat"
-						if len(beats) == beats_to_capture:
-							display("Heartrate", str(computeHeartrate(beats)), "", "")
-							beats.pop(0)
-						beats.append(pulse_timer)
-					else:
-						#print ""
-						pass
-				else:
-					pulse = False
-					#print ""
-
-				time.sleep(READING_INTERVAL)
-				pulse_timer = pulse_timer + READING_INTERVAL
+				beats = easypulse.readPulse()
+				heartrate = easypulse.computeHeartrate(beats)
+				display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
 
 			#elif operation == 13:
 			#	reading = readLastTweet()
