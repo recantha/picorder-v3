@@ -85,7 +85,7 @@ class EasyPulse:
 		return heartrate
 
 	def readPulse(self):
-		THRESHOLD=1010
+		THRESHOLD=900
 		READING_INTERVAL = 0.1
 		READ_FOR_SECONDS = 4
 		CURRENT_READING_TIME = 0

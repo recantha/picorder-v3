@@ -1,0 +1,412 @@
+Exception in thread Thread-2:
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/threading.py", line 552, in __bootstrap_inner
+    self.run()
+  File "/usr/lib/python2.7/threading.py", line 505, in run
+    self.__target(*self.__args, **self.__kwargs)
+  File "picorder.py", line 467, in readKey
+    key_press = str(getKey())
+  File "picorder.py", line 448, in getKey
+    old = termios.tcgetattr(fd)
+error: (25, 'Inappropriate ioctl for device')
+
+Picorder version 10
+Michael Horne - October 2013
+Using RPi.GPIO version 0.5.2a
+--------------------
+####################
+Picorder v10        
+Starting up...      
+####################
+--------------------
+--------------------
+####################
+Picorder v10        
+20131022193844      
+####################
+--------------------
+--------------------
+####################
+Picorder v10        
+Initialising GPS    
+####################
+--------------------
+--------------------
+####################
+Picorder v10        
+GPS should be up    
+####################
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 192.168.1.101      
+--------------------
+Current operation: 0
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 127.0.0.1          
+--------------------
+Next operation
+--------------------
+Hostname:           
+picorder            
+IP addresses        
+ 192.168.1.101      
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:14            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:15            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:16            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:18            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:19            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:21            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:22            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:24            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:25            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:27            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:53            
+--------------------
+Current operException in thread Thread-1:
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/threading.py", line 552, in __bootstrap_inner
+    self.run()
+  File "picorder.py", line 154, in run
+    gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
+  File "/usr/lib/python2.7/dist-packages/gps/gps.py", line 312, in next
+    raise StopIteration
+StopIteration
+
+ation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:55            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:56            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:58            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:39:59            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:01            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:02            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:03            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:05            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:06            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:08            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:09            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:11            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:12            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:14            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:15            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:16            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:18            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:19            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:21            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:22            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:24            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:25            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:26            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:28            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:29            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:31            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:32            
+--------------------
+Current operation: 1
+--------------------
+Current date is:    
+22 October 2013     
+Current time is:    
+19:40:33            
+-------------

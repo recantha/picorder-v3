@@ -593,7 +593,8 @@ ENABLE_GPS = True
 if ENABLE_GPS:
 	display("####################", "Picorder v" + picorder_version_no, "Initialising GPS", "####################")
 	os.system("./enable_gps.sh")
-	time.sleep(2)
+	time.sleep(4)
+	display("####################", "Picorder v" + picorder_version_no, "GPS should be up", "####################")
 	gpsd = None
 	gpsp = GpsPoller()
 	gpsp.start()
