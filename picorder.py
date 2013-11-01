@@ -315,7 +315,6 @@ def readUltrasonic():
 
         except Exception as err:
 		print type(err)
-		print err.strerror
                 return_text = "No reading"
 
         return return_text
@@ -423,20 +422,29 @@ def readSystemTemperatures():
 ###############################################################
 ###############################################################
 # SYS
+stop_counter = 0
+
 def iterateOperation(channel):
 	global operation
 	global max_operation
 	global time_stamp
+	global stop_counter
 
 	time_now = time.time()
 
-	if (time_now - time_stamp) >= 0.3:
+	if (time_now - time_stamp) >= 1:
 		operation = operation + 1
 		time_stamp = time_now
+		stop_counter = 0
 
 		if DEBUG:
 			print "Next operation"
-
+	else:
+		stop_counter = stop_counter + 1
+		if stop_counter == 20:
+			print "Picorder stopped by button presses"
+			display("Picorder halted", "System halted", "", "")
+			os.system("halt")
 
 import os
 import sys
@@ -563,6 +571,8 @@ bus = SMBus(1)
 # Button
 PIN_SWITCH = 24
 GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+PIN_SWITCH2 = 23
+GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Analog sensors
 PIN_HUMD = 0
@@ -615,6 +625,7 @@ if __name__ == "__main__":
 
 	operation = 0
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
+	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
 
 	while True:
@@ -711,4 +722,5 @@ if __name__ == "__main__":
 
 		except:
 			print "Error"
+			exit(0)
 			raise
