@@ -690,17 +690,17 @@ if __name__ == "__main__":
 				display("Moisture", reading[0], reading[1], "")
 				time.sleep(0.5)
 
-			elif operation == 11:
-				reading = readTemperature()
-				display("Temperature", reading, "from", "TMP102 sensor")
-				time.sleep(0.5)
+#			elif operation == 11:
+#				reading = readTemperature()
+#				display("Temperature", reading, "from", "TMP102 sensor")
+#				time.sleep(0.5)
 
-			elif operation == 12:
+			elif operation == 11:
 				readings = readSystemTemperatures()
 				display("System temperatures", readings[0], readings[1], "")
 				time.sleep(0.5)
 
-			elif operation == 13:
+			elif operation == 12:
 				beats = easypulse.readPulse()
 				heartrate = easypulse.computeHeartrate(beats)
 				display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")

@@ -87,7 +87,7 @@ class EasyPulse:
 	def readPulse(self):
 		THRESHOLD=900
 		READING_INTERVAL = 0.1
-		READ_FOR_SECONDS = 4
+		READ_FOR_SECONDS = 6
 		CURRENT_READING_TIME = 0
 		beats = []
 		pulse = False
