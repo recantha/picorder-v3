@@ -17,6 +17,9 @@ from smbus import SMBus
 from datetime import datetime
 from gps import *
 from Adafruit_BMP085 import BMP085
+import sys
+import termios
+import tty
 
 LCD_ENABLED = True
 
@@ -387,9 +390,9 @@ def readSoundLevel():
 
 
 ###############################################################
-# Read Humidity
-def readHumidity():
-	return readAnalogSensor(PIN_HUMD)
+# Read Galvanic Skin Response sensor
+def readGSR():
+	return readAnalogSensor(PIN_GSR)
 
 
 ###############################################################
@@ -445,11 +448,6 @@ def iterateOperation(channel):
 			print "Picorder stopped by button presses"
 			display("Picorder halted", "System halted", "", "")
 			os.system("halt")
-
-import os
-import sys
-import termios
-import tty
 
 def getKey():
 	fd = sys.stdin.fileno()
@@ -509,9 +507,9 @@ except:
 	pass
 
 ###############################################################
-picorder_version_no = "10"
+picorder_version_no = "12"
 print "Picorder version " + picorder_version_no
-print "Michael Horne - October 2013"
+print "Michael Horne - April 2014"
 print "Using RPi.GPIO version " + GPIO.VERSION
 
 time_stamp = time.time()
@@ -575,12 +573,12 @@ PIN_SWITCH2 = 23
 GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Analog sensors
-PIN_HUMD = 0
-PIN_MICR = 1
+PIN_MICR = 0
+PIN_GSR = 1
 PIN_MQ7 = 2
 PIN_MQ2 = 3
-PIN_MOISTURE = 7
 PIN_EPULSE = 6
+PIN_MOISTURE = 7
 
 # TMP102 temperature sensor
 tmp102 = TMP102.TMP102(0x48)
@@ -623,7 +621,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 0
+	operation = 6
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
@@ -658,7 +656,7 @@ if __name__ == "__main__":
 			elif operation == 4:
 				ypr = readMPU6050()
 				display("MPU accelerometer", "Yaw: " + ypr['yaw'], "Pitch: " + ypr['pitch'], "Roll: " + ypr['roll'])
-				time.sleep(0.5)
+				time.sleep(0.05)
 
 			elif operation == 5:
 				tpa = readBarometer()
@@ -668,7 +666,7 @@ if __name__ == "__main__":
 			elif operation == 6:
 				ultrasonic = readUltrasonic()
 				display("Ultrasonic", "Distance", "Measurement", ultrasonic)
-				time.sleep(0.5)
+				time.sleep(0.05)
 
 			elif operation == 7:
 				reading = readSoundLevel()
@@ -676,9 +674,9 @@ if __name__ == "__main__":
 				time.sleep(0.5)
 
 			elif operation == 8:
-				reading = readHumidity()
-				display("Humidity", reading[0], reading[1], "")
-				time.sleep(0.5)
+				reading = readGSR()
+				display("Galvanic Skin Resp.", reading[0], reading[1], "")
+				time.sleep(0.05)
 
 			elif operation == 9:
 				mq2 = readMQ2()
@@ -690,15 +688,10 @@ if __name__ == "__main__":
 				display("Moisture", reading[0], reading[1], "")
 				time.sleep(0.5)
 
-#			elif operation == 11:
-#				reading = readTemperature()
-#				display("Temperature", reading, "from", "TMP102 sensor")
-#				time.sleep(0.5)
-
 			elif operation == 11:
 				readings = readSystemTemperatures()
 				display("System temperatures", readings[0], readings[1], "")
-				time.sleep(0.5)
+				time.sleep(1)
 
 			elif operation == 12:
 				beats = easypulse.readPulse()
