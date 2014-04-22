@@ -21,8 +21,28 @@ import sys
 import termios
 import tty
 
-LCD_ENABLED = True
 
+# This doesn't work. It conflicts with something that is being imported
+# If it's a choice between sensors and sound, I choose sound any day
+#import pygame
+
+#pygame.init()
+#pygame.mixer.init()
+#scan = pygame.mixer.Sound("sounds/tricorder.wav")
+#scan.set_volume(1.0)
+
+#scan.play(-1)
+#
+#while True:
+        print "Playing"
+
+#exit(0)
+
+
+
+
+
+LCD_ENABLED = False
 
 ###############################################################
 # LCD
@@ -608,9 +628,16 @@ if ENABLE_GPS:
 	gpsp.start()
 
 
+
+def playTricorderSound():
+	sound = pygame.mixer.Sound("sounds/tricorder.wav")
+	sound.play(loops=-1)
+
+
 ###############################################################
 # MAIN
 
+#playTricorderSound()
 
 if __name__ == "__main__":
 	RUN_TEST = 0
@@ -621,7 +648,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 6
+	operation = 0
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
