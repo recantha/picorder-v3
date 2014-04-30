@@ -4,7 +4,7 @@ import RPi.GPIO as GPIO
 import time
 
 class EasyPulse:
-	def __init__(self, debug=0, pin_epulse=6):
+	def __init__(self, debug=0, pin_epulse=4):
 		self.DEBUG = debug
 
 		# GPIO

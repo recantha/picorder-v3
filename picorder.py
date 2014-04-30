@@ -34,7 +34,7 @@ import tty
 #scan.play(-1)
 #
 #while True:
-        print "Playing"
+#        print "Playing"
 
 #exit(0)
 
@@ -426,6 +426,11 @@ def readMQ2():
 	return readAnalogSensor(PIN_MQ2)
 
 ###############################################################
+# Read MQ3
+def readMQ3():
+	return readAnalogSensor(PIN_MQ3)
+
+###############################################################
 # Read Moisture
 def readMoisture():
 	return readAnalogSensor(PIN_MOISTURE)
@@ -597,7 +602,8 @@ PIN_MICR = 0
 PIN_GSR = 1
 PIN_MQ7 = 2
 PIN_MQ2 = 3
-PIN_EPULSE = 6
+PIN_EPULSE = 4
+PIN_MQ3 = 6 # Alcohol sensor
 PIN_MOISTURE = 7
 
 # TMP102 temperature sensor
@@ -637,8 +643,6 @@ def playTricorderSound():
 ###############################################################
 # MAIN
 
-#playTricorderSound()
-
 if __name__ == "__main__":
 	RUN_TEST = 0
 	if RUN_TEST:
@@ -648,7 +652,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 0
+	operation = 12
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
@@ -724,6 +728,11 @@ if __name__ == "__main__":
 				beats = easypulse.readPulse()
 				heartrate = easypulse.computeHeartrate(beats)
 				display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
+
+			elif operation == 13:
+				mq3 = readMQ3()
+				display("MQ3 sensor", "Alcohol sensor", mq3[0], mq3[1])
+				time.sleep(0.5)
 
 			#elif operation == 13:
 			#	reading = readLastTweet()
