@@ -42,7 +42,7 @@ import tty
 
 
 
-LCD_ENABLED = False
+LCD_ENABLED = True
 
 ###############################################################
 # LCD
@@ -155,10 +155,6 @@ def readMPU6050():
                 reading['roll'] = -1
 
                 return reading
-
-
-
-
 
 
 ###############################################################
@@ -553,11 +549,11 @@ except:
 	print "LCD failed to initialise"
 
 # ACCEL NUMBER 1
-try:
-	hmc = hmc5883l.HMC5883L()
-
-except:
-	print "HMC failed to initialise"
+#try:
+#	hmc = hmc5883l.HMC5883L()
+#
+#except:
+#	print "HMC failed to initialise"
 
 # ACCEL NUMBER 2
 try:
@@ -652,7 +648,7 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 12
+	operation = 4
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 	threading.Thread(target = readKey).start()
