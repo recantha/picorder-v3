@@ -1,25 +1,26 @@
 #!/usr/bin/python
 
 from __future__ import division
-from EasyPulse import EasyPulse
 import RPi.GPIO as GPIO
-from PyComms import hmc5883l
-from PyComms import mpu6050
-import TMP102
+#from PyComms import hmc5883l
+#from PyComms import mpu6050
+#import TMP102
 import lcddriver
 import math
 import commands
 import os
 import time
 import threading
-import commands
+import sys
+import termios
+import tty
+import twitter
+import RTIMU
 from smbus import SMBus
 from datetime import datetime
 from gps import *
 from Adafruit_BMP085 import BMP085
-import sys
-import termios
-import tty
+#from EasyPulse import EasyPulse
 
 
 # This doesn't work. It conflicts with something that is being imported
@@ -42,7 +43,7 @@ import tty
 
 
 
-LCD_ENABLED = False
+LCD_ENABLED = True
 
 ###############################################################
 # LCD
@@ -443,6 +444,25 @@ def readSystemTemperatures():
 
 	return readings
 
+def readIMU():
+	poll_interval = imu.IMUGetPollInterval()
+
+	imu_readings = {}
+	imu_readings['roll'] = -1
+	imu_readings['pitch'] = -1
+	imu_readings['yaw'] = -1
+	if imu.IMURead():
+	# x, y, z = imu.getFusionData()
+	# print("%f %f %f" % (x,y,z))
+		data = imu.getIMUData()
+		fusionPose = data["fusionPose"]
+		imu_readings['roll'] = math.degrees(fusionPose[0])
+		imu_readings['pitch'] = math.degrees(fusionPose[1])
+		imu_readings['yaw'] = math.degrees(fusionPose[2])
+		time.sleep(poll_interval*1.0/1000.0)
+
+	return imu_readings
+
 ###############################################################
 ###############################################################
 # SYS
@@ -517,7 +537,6 @@ def readLastTweet():
 DEBUG=1
 
 # TWITTER SET-UP
-import twitter
 CONSUMER_KEY = '4dg3D0FRULTUMCWyUytmsg'
 CONSUMER_SECRET = 'yqgk7hqpBxkQwJzvtUnK2E0rDPLqI5JSuv54qsA8'
 ACCESS_KEY = '1911720504-8audXV5cs0Wt2cmFaKmAyPbytSc3vFnonpOd9Tg'
@@ -528,9 +547,9 @@ except:
 	pass
 
 ###############################################################
-picorder_version_no = "12"
+picorder_version_no = "1 HAT"
 print "Picorder version " + picorder_version_no
-print "Michael Horne - April 2014"
+print "Michael Horne - March 2015"
 print "Using RPi.GPIO version " + GPIO.VERSION
 
 time_stamp = time.time()
@@ -556,22 +575,39 @@ except:
 #	print "HMC failed to initialise"
 
 # ACCEL NUMBER 2
-try:
-	mpu = mpu6050.MPU6050()
-	mpu.dmpInitialize()
-	mpu.setDMPEnabled(True)
+#try:
+#	mpu = mpu6050.MPU6050()
+#	mpu.dmpInitialize()
+#	mpu.setDMPEnabled(True)
 
-except:
-	print "MPU failed to initialise"
+#except:
+#	print "MPU failed to initialise"
+
+# BerryIMU
+SETTINGS_FILE = "RTIMULib"
+print("Setting up RTIMULib using settings file " + SETTINGS_FILE + ".ini")
+if not os.path.exists(SETTINGS_FILE + ".ini"):
+  print("Settings file does not exist, will be created")
+
+s = RTIMU.Settings(SETTINGS_FILE)
+imu = RTIMU.RTIMU(s)
+
+print("IMU Name: " + imu.IMUName())
+
+if (not imu.IMUInit()):
+	print("IMU Init Failed");
+	sys.exit(1)
+else:
+	print("IMU Init Succeeded");
 
 # Barometer BMP085
 bmp = BMP085(0x77, 0)
 
 # Ultrasonic
-US_PIN_TRIGGER=17
-US_PIN_ECHO=27
-GPIO.setup(US_PIN_TRIGGER, GPIO.OUT)
-GPIO.setup(US_PIN_ECHO, GPIO.IN)
+#US_PIN_TRIGGER=17
+#US_PIN_ECHO=27
+#GPIO.setup(US_PIN_TRIGGER, GPIO.OUT)
+#GPIO.setup(US_PIN_ECHO, GPIO.IN)
 
 # Analog-to-digital converter
 SPICLK = 11
@@ -588,25 +624,25 @@ GPIO.setup(SPICS, GPIO.OUT)
 bus = SMBus(1)
 
 # Button
-PIN_SWITCH = 24
-GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-PIN_SWITCH2 = 23
-GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+#PIN_SWITCH = 24
+#GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+#PIN_SWITCH2 = 23
+#GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Analog sensors
-PIN_MICR = 0
-PIN_GSR = 1
-PIN_MQ7 = 2
-PIN_MQ2 = 3
-PIN_EPULSE = 4
-PIN_MQ3 = 6 # Alcohol sensor
+#PIN_MICR = 0
+#PIN_GSR = 1
+#PIN_MQ2 = 3
+#PIN_EPULSE = 4
 
 PIN_MOISTURE = 0
+PIN_MQ7 = 1 # Carbon monoxide sensor
+PIN_MQ3 = 2 # Alcohol sensor
 
 # TMP102 temperature sensor
-tmp102 = TMP102.TMP102(0x48)
+#tmp102 = TMP102.TMP102(0x48)
 
-easypulse = EasyPulse()
+#easypulse = EasyPulse()
 
 
 
@@ -649,9 +685,11 @@ if __name__ == "__main__":
 			print reading
 			time.sleep(0.5)
 
-	operation = 10
-	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
-	GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
+	operation = 0
+	#GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
+	#GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
+
+	# A key press advances the operation
 	threading.Thread(target = readKey).start()
 
 	while True:
@@ -679,6 +717,11 @@ if __name__ == "__main__":
 			elif operation == 3:
 				mq7 = readMQ7()
 				display("MQ7 sensor", "Carbon monoxide", mq7[0], mq7[1])
+				time.sleep(0.5)
+
+			elif operation == 4:
+				imu = readIMU()
+				display("IMU", "Roll: " + imu['roll'], "Pitch: " + imu['pitch'], "Yaw: " + imu['yaw'])
 				time.sleep(0.5)
 
 			elif operation == 4:
@@ -746,7 +789,8 @@ if __name__ == "__main__":
 			GPIO.cleanup()
 			raise
 
-		except:
+		except Exception as exc:
+			print exc
 			print "Error"
 			exit(0)
 			raise
