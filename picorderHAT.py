@@ -20,7 +20,9 @@ from smbus import SMBus
 from datetime import datetime
 from gps import *
 from Adafruit_BMP085 import BMP085
-#from EasyPulse import EasyPulse
+from EasyPulse import EasyPulse
+from Adafruit_7Segment import SevenSegment
+
 
 
 # This doesn't work. It conflicts with something that is being imported
@@ -86,6 +88,26 @@ def readIPaddresses():
         addrs = ips.split('\n')
 
         return addrs
+
+
+###############################################################
+# Clock
+def sevenSegmentClock():
+	while True:
+		now = datetime.now()
+		hour = now.hour
+		minute = now.minute
+		second = now.second
+		# Set hours
+		segment.writeDigit(0, int(hour / 10))	 # Tens
+		segment.writeDigit(1, hour % 10)         # Ones
+		# Set minutes
+		segment.writeDigit(3, int(minute / 10))  # Tens
+		segment.writeDigit(4, minute % 10)       # Ones
+		# Toggle colon
+		segment.setColon(second % 2)             # Toggle colon at 1Hz
+		# Wait one second
+		time.sleep(1)
 
 ###############################################################
 # HMC reading
@@ -172,16 +194,6 @@ class GpsPoller(threading.Thread):
                 global gpsd
                 while gpsp.running:
                         gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
-
-
-
-###############################################################
-# TMP102
-def readTemperature():
-	reading = tmp102.readTemperature()
-	str_temp = "%.2f C" % reading
-	return str_temp
-
 
 
 ###########################################################
@@ -444,22 +456,22 @@ def readSystemTemperatures():
 
 	return readings
 
+###############################################################
+# Read IMU board
 def readIMU():
-	poll_interval = imu.IMUGetPollInterval()
-
 	imu_readings = {}
-	imu_readings['roll'] = -1
-	imu_readings['pitch'] = -1
-	imu_readings['yaw'] = -1
+	imu_readings['roll'] = "%.0f" % -1
+	imu_readings['pitch'] = "%.0f" % -1
+	imu_readings['yaw'] = "%.0f" % -1
 	if imu.IMURead():
 	# x, y, z = imu.getFusionData()
 	# print("%f %f %f" % (x,y,z))
 		data = imu.getIMUData()
 		fusionPose = data["fusionPose"]
-		imu_readings['roll'] = math.degrees(fusionPose[0])
-		imu_readings['pitch'] = math.degrees(fusionPose[1])
-		imu_readings['yaw'] = math.degrees(fusionPose[2])
-		time.sleep(poll_interval*1.0/1000.0)
+		imu_readings['roll'] = "%.0f" % math.degrees(fusionPose[0])
+		imu_readings['pitch'] = "%.0f" % math.degrees(fusionPose[1])
+		imu_readings['yaw'] = "%.0f" % math.degrees(fusionPose[2])
+		time.sleep(imu_poll_interval*1.0/1000.0)
 
 	return imu_readings
 
@@ -567,6 +579,12 @@ try:
 except:
 	print "LCD failed to initialise"
 
+# 7-segment
+try:
+	segment = SevenSegment(address=0x70)
+except:
+	print "Seven segment failed to initialise"
+
 # ACCEL NUMBER 1
 #try:
 #	hmc = hmc5883l.HMC5883L()
@@ -591,6 +609,7 @@ if not os.path.exists(SETTINGS_FILE + ".ini"):
 
 s = RTIMU.Settings(SETTINGS_FILE)
 imu = RTIMU.RTIMU(s)
+imu_poll_interval = imu.IMUGetPollInterval()
 
 print("IMU Name: " + imu.IMUName())
 
@@ -604,10 +623,10 @@ else:
 bmp = BMP085(0x77, 0)
 
 # Ultrasonic
-#US_PIN_TRIGGER=17
-#US_PIN_ECHO=27
-#GPIO.setup(US_PIN_TRIGGER, GPIO.OUT)
-#GPIO.setup(US_PIN_ECHO, GPIO.IN)
+US_PIN_TRIGGER=20
+US_PIN_ECHO=19
+GPIO.setup(US_PIN_TRIGGER, GPIO.OUT)
+GPIO.setup(US_PIN_ECHO, GPIO.IN)
 
 # Analog-to-digital converter
 SPICLK = 11
@@ -624,27 +643,23 @@ GPIO.setup(SPICS, GPIO.OUT)
 bus = SMBus(1)
 
 # Button
-#PIN_SWITCH = 24
-#GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+PIN_SWITCH = 5
+GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 #PIN_SWITCH2 = 23
 #GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Analog sensors
-#PIN_MICR = 0
-#PIN_GSR = 1
-#PIN_MQ2 = 3
-#PIN_EPULSE = 4
 
 PIN_MOISTURE = 0
 PIN_MQ7 = 1 # Carbon monoxide sensor
 PIN_MQ3 = 2 # Alcohol sensor
+PIN_MQ2 = 3
 
-# TMP102 temperature sensor
-#tmp102 = TMP102.TMP102(0x48)
+PIN_MICR = 4
+PIN_GSR = 5
+PIN_EPULSE = 6
 
-#easypulse = EasyPulse()
-
-
+easypulse = EasyPulse()
 
 #############################################################
 # Start-up routine
@@ -677,16 +692,12 @@ def playTricorderSound():
 # MAIN
 
 if __name__ == "__main__":
-	RUN_TEST = 0
-	if RUN_TEST:
-		while True:
-			reading = readadc(7, SPICLK, SPIMOSI, SPIMISO, SPICS)
-			print "Channel 7"
-			print reading
-			time.sleep(0.5)
+	threading.Thread(target = sevenSegmentClock).start()
 
 	operation = 0
-	#GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
+
+	# Detect physical switch presses and iterate the operation
+	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
 	#GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 
 	# A key press advances the operation
@@ -720,14 +731,15 @@ if __name__ == "__main__":
 				time.sleep(0.5)
 
 			elif operation == 4:
-				imu = readIMU()
-				display("IMU", "Roll: " + imu['roll'], "Pitch: " + imu['pitch'], "Yaw: " + imu['yaw'])
-				time.sleep(0.5)
+				imu_readings = readIMU()
+				display("IMU", "Roll: " + imu_readings['roll'], "Pitch: " + imu_readings['pitch'], "Yaw: " + imu_readings['yaw'])
+				#time.sleep(0.5)
 
 			elif operation == 4:
-				ypr = readMPU6050()
-				display("MPU accelerometer", "Yaw: " + ypr['yaw'], "Pitch: " + ypr['pitch'], "Roll: " + ypr['roll'])
-				time.sleep(0.05)
+				#ypr = readMPU6050()
+				#display("MPU accelerometer", "Yaw: " + ypr['yaw'], "Pitch: " + ypr['pitch'], "Roll: " + ypr['roll'])
+				#time.sleep(0.05)
+				pass
 
 			elif operation == 5:
 				tpa = readBarometer()
@@ -740,14 +752,16 @@ if __name__ == "__main__":
 				time.sleep(0.05)
 
 			elif operation == 7:
-				reading = readSoundLevel()
-				display("Microphone", "Sound level", reading[0], reading[1])
-				time.sleep(0.5)
+				pass
+				#reading = readSoundLevel()
+				#display("Microphone", "Sound level", reading[0], reading[1])
+				#time.sleep(0.5)
 
 			elif operation == 8:
-				reading = readGSR()
-				display("Galvanic Skin Resp.", reading[0], reading[1], "")
-				time.sleep(0.05)
+				pass
+				#reading = readGSR()
+				#display("Galvanic Skin Resp.", reading[0], reading[1], "")
+				#time.sleep(0.05)
 
 			elif operation == 9:
 				mq2 = readMQ2()
@@ -765,9 +779,10 @@ if __name__ == "__main__":
 				time.sleep(1)
 
 			elif operation == 12:
-				beats = easypulse.readPulse()
-				heartrate = easypulse.computeHeartrate(beats)
-				display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
+				pass
+				#beats = easypulse.readPulse()
+				#heartrate = easypulse.computeHeartrate(beats)
+				#display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
 
 			elif operation == 13:
 				mq3 = readMQ3()
