@@ -22,8 +22,8 @@ from gps import *
 from Adafruit_BMP085 import BMP085
 from EasyPulse import EasyPulse
 from Adafruit_7Segment import SevenSegment
-
-
+from Adafruit_8x8 import EightByEight
+from Adafruit_Bargraph import Bargraph
 
 # This doesn't work. It conflicts with something that is being imported
 # If it's a choice between sensors and sound, I choose sound any day
@@ -50,7 +50,6 @@ LCD_ENABLED = True
 ###############################################################
 # LCD
 def display(line_1, line_2="                    ", line_3="                    ", line_4="                    "):
-
 	line_1 = line_1.ljust(20, " ")
 	line_2 = line_2.ljust(20, " ")
 	line_3 = line_3.ljust(20, " ")
@@ -108,6 +107,29 @@ def sevenSegmentClock():
 		segment.setColon(second % 2)             # Toggle colon at 1Hz
 		# Wait one second
 		time.sleep(1)
+
+################################################################
+# Matrix
+def eightByEightDemo():
+	# Continually update the 8x8 display one pixel at a time
+	while(True):
+		for x in range(0, 8):
+			for y in range(0, 8):
+				grid.setPixel(x, y)
+				time.sleep(0.05)
+		time.sleep(0.5)
+		grid.clear()
+		time.sleep(0.5)
+
+
+###############################################################
+# Strip
+def bargraphDemo():
+	while(True):
+		for color in range(1, 4):
+			for i in range(24):
+				bargraph.setLed(i, color)
+				time.sleep(0.02)
 
 ###############################################################
 # HMC reading
@@ -494,7 +516,7 @@ def iterateOperation(channel):
 		stop_counter = 0
 
 		if DEBUG:
-			print "Next operation"
+			print "Next operation (" + str(operation) + ")"
 	else:
 		stop_counter = stop_counter + 1
 		if stop_counter == 20:
@@ -533,6 +555,7 @@ def sendTweet(message):
 	try:
 		twitter_api.PostUpdate(message)
 	except:
+		print "Failed to send tweet"
 		pass
 
 def readLastTweet():
@@ -543,6 +566,11 @@ def readLastTweet():
 		last_status = "Check connection"
 
 	return last_status
+
+###############################################################
+def playTricorderSound():
+	sound = pygame.mixer.Sound("sounds/tricorder.wav")
+	sound.play(loops=-1)
 
 ###############################################################
 # INIT SECTION
@@ -585,6 +613,19 @@ try:
 except:
 	print "Seven segment failed to initialise"
 
+# Matrix
+try:
+	grid = EightByEight(address=0x72)
+except:
+	print "Matrix failed to initialize"
+
+# Strip
+try:
+	bargraph = Bargraph(address=0x71)
+except:
+	print "Bargraph failed to initialize"
+
+
 # ACCEL NUMBER 1
 #try:
 #	hmc = hmc5883l.HMC5883L()
@@ -601,11 +642,12 @@ except:
 #except:
 #	print "MPU failed to initialise"
 
+#######################################################
 # BerryIMU
 SETTINGS_FILE = "RTIMULib"
-print("Setting up RTIMULib using settings file " + SETTINGS_FILE + ".ini")
+#print("Setting up RTIMULib using settings file " + SETTINGS_FILE + ".ini")
 if not os.path.exists(SETTINGS_FILE + ".ini"):
-  print("Settings file does not exist, will be created")
+	print("RTIMULib settings file does not exist, will be created")
 
 s = RTIMU.Settings(SETTINGS_FILE)
 imu = RTIMU.RTIMU(s)
@@ -619,15 +661,18 @@ if (not imu.IMUInit()):
 else:
 	print("IMU Init Succeeded");
 
+#######################################################
 # Barometer BMP085
 bmp = BMP085(0x77, 0)
 
+#######################################################
 # Ultrasonic
 US_PIN_TRIGGER=20
 US_PIN_ECHO=19
 GPIO.setup(US_PIN_TRIGGER, GPIO.OUT)
 GPIO.setup(US_PIN_ECHO, GPIO.IN)
 
+#######################################################
 # Analog-to-digital converter
 SPICLK = 11
 SPIMISO = 9
@@ -639,17 +684,7 @@ GPIO.setup(SPIMISO, GPIO.IN)
 GPIO.setup(SPICLK, GPIO.OUT)
 GPIO.setup(SPICS, GPIO.OUT)
 
-# I2C bus
-bus = SMBus(1)
-
-# Button
-PIN_SWITCH = 5
-GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-#PIN_SWITCH2 = 23
-#GPIO.setup(PIN_SWITCH2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
 # Analog sensors
-
 PIN_MOISTURE = 0
 PIN_MQ7 = 1 # Carbon monoxide sensor
 PIN_MQ3 = 2 # Alcohol sensor
@@ -659,48 +694,55 @@ PIN_MICR = 4
 PIN_GSR = 5
 PIN_EPULSE = 6
 
+#######################################################
+# I2C bus
+bus = SMBus(1)
+
+#######################################################
+# Button
+PIN_SWITCH = 5
+GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
 easypulse = EasyPulse()
-
-#############################################################
-# Start-up routine
-
-display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
-time.sleep(0.5)
-
-display("####################", "Picorder v" + picorder_version_no, session_id, "####################")
-time.sleep(0.5)
-
-# GPS
-ENABLE_GPS = True
-if ENABLE_GPS:
-	display("####################", "Picorder v" + picorder_version_no, "Initialising GPS", "####################")
-	os.system("./enable_gps.sh")
-	time.sleep(4)
-	display("####################", "Picorder v" + picorder_version_no, "GPS should be up", "####################")
-	gpsd = None
-	gpsp = GpsPoller()
-	gpsp.start()
-
-
-
-def playTricorderSound():
-	sound = pygame.mixer.Sound("sounds/tricorder.wav")
-	sound.play(loops=-1)
 
 
 ###############################################################
 # MAIN
 
 if __name__ == "__main__":
+	#############################################################
+	# Start-up routine
+	
+	display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
+	time.sleep(0.2)
+	
+	display("####################", "Picorder v" + picorder_version_no, session_id, "####################")
+	time.sleep(0.2)
+	
+	# GPS
+	ENABLE_GPS = True
+	if ENABLE_GPS:
+		display("####################", "Picorder v" + picorder_version_no, "Initialising GPS", "####################")
+		os.system("./enable_gps.sh")
+		time.sleep(3)
+		display("####################", "Picorder v" + picorder_version_no, "GPS should be up", "####################")
+		gpsd = None
+		gpsp = GpsPoller()
+		gpsp.start()
+
+	# Start independent processes
 	threading.Thread(target = sevenSegmentClock).start()
+	threading.Thread(target = eightByEightDemo).start()
+	threading.Thread(target = bargraphDemo).start()
 
 	operation = 0
 
+	#################################################################################
 	# Detect physical switch presses and iterate the operation
 	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
-	#GPIO.add_event_detect(PIN_SWITCH2, GPIO.RISING, callback=iterateOperation)
 
-	# A key press advances the operation
+	# A key press also advances the operation
 	threading.Thread(target = readKey).start()
 
 	while True:
