@@ -16,6 +16,7 @@ import termios
 import tty
 import twitter
 import RTIMU
+import random
 from smbus import SMBus
 from datetime import datetime
 from gps import *
@@ -108,6 +109,10 @@ def sevenSegmentClock():
 		# Wait one second
 		time.sleep(1)
 
+		if thread_keep_alive == 0:
+			print "Clock shutdown"
+			break
+
 ################################################################
 # Matrix
 def eightByEightDemo():
@@ -121,6 +126,36 @@ def eightByEightDemo():
 		grid.clear()
 		time.sleep(0.5)
 
+		if thread_keep_alive == 0:
+			print "Matrix shutdown"
+			break
+
+
+def eightByEightHeartbeat():
+	while True:
+		for x in range(0,8):
+			for y in range(0,8):
+				grid.setPixel(x,y)
+		time.sleep(1)
+		grid.clear()
+
+		if eightByEightHeartbeatAlive == 0:
+			print "Heartbeat shutdown"
+			break
+
+def matrix(mx):
+	x = 0
+	for line in mx:
+		y=0
+		for cell in line:
+			#print Z[x][y],
+			if cell == 1:
+				grid.setPixel(x,y)
+			else:
+				grid.clearPixel(x,y)
+			y=y+1
+		x=x+1
+		#print ""
 
 ###############################################################
 # Strip
@@ -130,6 +165,70 @@ def bargraphDemo():
 			for i in range(24):
 				bargraph.setLed(i, color)
 				time.sleep(0.02)
+
+		if thread_keep_alive == 0:
+			print "Bargraph shutdown"
+			break
+
+
+###############################################################
+# Game of Life
+# Code originally taken from http://dana.loria.fr/doc/game-of-life.html
+def GOLiterate(Z):
+	previous = Z
+
+	try:
+		shape = len(Z), len(Z[0])
+		N  = [[0,]*(shape[0]+2)  for i in range(shape[1]+2)]
+		# Compute number of neighbours for each cell
+		for x in range(1,shape[0]-1):
+			for y in range(1,shape[1]-1):
+				N[x][y] = Z[x-1][y-1]+Z[x][y-1]+Z[x+1][y-1] \
+					+ Z[x-1][y]+Z[x+1][y]   \
+					+ Z[x-1][y+1]+Z[x][y+1]+Z[x+1][y+1]
+		# Update cells
+		for x in range(1,shape[0]-1):
+			for y in range(1,shape[1]-1):
+				if Z[x][y] == 0 and N[x][y] == 3:
+					Z[x][y] = 1
+				elif Z[x][y] == 1 and not N[x][y] in [2,3]:
+					Z[x][y] = 0
+	except:
+		Z = previous
+
+def GOLdisplay(Z):
+	shape = len(Z), len(Z[0])
+	for x in range(1,shape[0]-1):
+		for y in range(1,shape[1]-1):
+			print Z[x][y],
+		print
+	print
+
+def GOLgenerate(width, height):
+	build = []
+	for x in range (0,width+2):
+		build.append([])
+		for y in range(0,height+2):
+			build[x].append(random.randint(0,1))
+	return build
+
+Z = GOLgenerate(8,8)
+def gameOfLife():
+	generation = 0
+	while True:
+		generation = generation + 1
+		if generation == 10:
+			Z = GOLgenerate(8,8)
+			generation = 0
+		#os.system('clear')
+		#display(Z)
+		try:
+			matrix(Z)
+			GOLiterate(Z)
+		except:
+			pass
+		time.sleep(1)
+
 
 ###############################################################
 # HMC reading
@@ -502,27 +601,14 @@ def readIMU():
 # SYS
 stop_counter = 0
 
-def iterateOperation(channel):
+def iterateOperation():
 	global operation
-	global max_operation
-	global time_stamp
-	global stop_counter
 
-	time_now = time.time()
+	operation = operation + 1
+	display("################", "Next operation", "", "################")
 
-	if (time_now - time_stamp) >= 1:
-		operation = operation + 1
-		time_stamp = time_now
-		stop_counter = 0
-
-		if DEBUG:
-			print "Next operation (" + str(operation) + ")"
-	else:
-		stop_counter = stop_counter + 1
-		if stop_counter == 20:
-			print "Picorder stopped by button presses"
-			display("Picorder halted", "System halted", "", "")
-			os.system("halt")
+	if DEBUG:
+		print "Next operation (" + str(operation) + ")"
 
 def getKey():
 	fd = sys.stdin.fileno()
@@ -547,7 +633,7 @@ def readKey():
 		with lock:
 			key_press = str(getKey())
 			if key_press != '^':
-				iterateOperation(1)
+				iterateOperation()
 
 ###############################################################
 # TWITTER
@@ -595,7 +681,7 @@ print "Using RPi.GPIO version " + GPIO.VERSION
 time_stamp = time.time()
 session_id = currentSession()
 
-sendTweet("Picorder Activated " + str(time_stamp))
+sendTweet("Picorder Activated at " + str(time_stamp))
 
 # GPIO
 GPIO.setmode(GPIO.BCM)
@@ -703,8 +789,7 @@ bus = SMBus(1)
 PIN_SWITCH = 5
 GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-
-easypulse = EasyPulse()
+#easypulse = EasyPulse()
 
 
 ###############################################################
@@ -713,6 +798,9 @@ easypulse = EasyPulse()
 if __name__ == "__main__":
 	#############################################################
 	# Start-up routine
+
+	eightByEightHeartbeatAlive = 1
+	threading.Thread(target = eightByEightHeartbeat).start()
 	
 	display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
 	time.sleep(0.2)
@@ -731,24 +819,31 @@ if __name__ == "__main__":
 		gpsp = GpsPoller()
 		gpsp.start()
 
+	# Kill heartbeat
+	eightByEightHeartbeatAlive = 0
+
 	# Start independent processes
+	thread_keep_alive = 1
 	threading.Thread(target = sevenSegmentClock).start()
-	threading.Thread(target = eightByEightDemo).start()
+	#threading.Thread(target = eightByEightDemo).start()
+	threading.Thread(target = gameOfLife).start()
 	threading.Thread(target = bargraphDemo).start()
 
 	operation = 0
 
-	#################################################################################
-	# Detect physical switch presses and iterate the operation
-	GPIO.add_event_detect(PIN_SWITCH, GPIO.RISING, callback=iterateOperation)
-
 	# A key press also advances the operation
-	threading.Thread(target = readKey).start()
+	#threading.Thread(target = readKey).start()
 
+	SHUTDOWN_FLAG = 0
 	while True:
 		print "Current operation: " + str(operation)
 
 		try:
+			if operation == -1:
+				SHUTDOWN_FLAG = 1
+				thread_keep_alive = 0
+				break
+
 			if operation == 0:
 				hostname = readHostname()
 				for addr in readIPaddresses():
@@ -778,10 +873,10 @@ if __name__ == "__main__":
 				#time.sleep(0.5)
 
 			elif operation == 4:
+				display("Operation 4", "Not enabled", "", "")
 				#ypr = readMPU6050()
 				#display("MPU accelerometer", "Yaw: " + ypr['yaw'], "Pitch: " + ypr['pitch'], "Roll: " + ypr['roll'])
 				#time.sleep(0.05)
-				pass
 
 			elif operation == 5:
 				tpa = readBarometer()
@@ -794,13 +889,13 @@ if __name__ == "__main__":
 				time.sleep(0.05)
 
 			elif operation == 7:
-				pass
+				display("Operation 7", "Not enabled", "", "")
 				#reading = readSoundLevel()
 				#display("Microphone", "Sound level", reading[0], reading[1])
 				#time.sleep(0.5)
 
 			elif operation == 8:
-				pass
+				display("Operation 8", "Not enabled", "", "")
 				#reading = readGSR()
 				#display("Galvanic Skin Resp.", reading[0], reading[1], "")
 				#time.sleep(0.05)
@@ -821,7 +916,7 @@ if __name__ == "__main__":
 				time.sleep(1)
 
 			elif operation == 12:
-				pass
+				display("Operation 12", "Not enabled", "", "")
 				#beats = easypulse.readPulse()
 				#heartrate = easypulse.computeHeartrate(beats)
 				#display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
@@ -835,10 +930,27 @@ if __name__ == "__main__":
 			#	reading = readLastTweet()
 			#	display("Last tweet to @picorder", reading, "", "")
 			#	time.sleep(5)
-			#	iterateOperation(1)
+			#	iterateOperation()
 
 			else:
 				operation = 0
+
+			if GPIO.input(PIN_SWITCH) == 0:
+				#################################################################################
+				# Detect physical switch presses and iterate the operation
+				iterateOperation()
+				time.sleep(0.5)
+
+				start = time.time()
+				while not GPIO.input(PIN_SWITCH):
+					end = time.time()
+					duration = end - start
+
+					if duration > 5:
+						display("################", "Kill switch detected", "", "################")
+						operation = -1
+						break
+
 
 		except KeyboardInterrupt:
 			gpsp.running = False
@@ -851,3 +963,10 @@ if __name__ == "__main__":
 			print "Error"
 			exit(0)
 			raise
+
+if SHUTDOWN_FLAG == 1:
+	display("################", "System shutdown", "", "################")
+	os.system("sudo halt")
+	display("################", "Halt initiated", "", "################")
+	sys.exit(1)
+
