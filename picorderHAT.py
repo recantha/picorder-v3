@@ -25,6 +25,7 @@ from EasyPulse import EasyPulse
 from Adafruit_7Segment import SevenSegment
 from Adafruit_8x8 import EightByEight
 from Adafruit_Bargraph import Bargraph
+from BerryIMU import BerryIMU
 
 # This doesn't work. It conflicts with something that is being imported
 # If it's a choice between sensors and sound, I choose sound any day
@@ -640,8 +641,9 @@ def readKey():
 def sendTweet(message):
 	try:
 		twitter_api.PostUpdate(message)
-	except:
+        except Exception as err:
 		print "Failed to send tweet"
+		print err
 		pass
 
 def readLastTweet():
@@ -667,9 +669,13 @@ CONSUMER_KEY = '4dg3D0FRULTUMCWyUytmsg'
 CONSUMER_SECRET = 'yqgk7hqpBxkQwJzvtUnK2E0rDPLqI5JSuv54qsA8'
 ACCESS_KEY = '1911720504-8audXV5cs0Wt2cmFaKmAyPbytSc3vFnonpOd9Tg'
 ACCESS_SECRET = 'T1yNOP1ZAeI0MGriTB8ERBDYDhrfJxorRZeqUWV3q10'
+
 try:
 	twitter_api = twitter.Api(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SECRET, access_token_key=ACCESS_KEY, access_token_secret=ACCESS_SECRET)
-except:
+
+except Exception as err:
+	print "Unable to instantiate Twitter API"
+	print err
 	pass
 
 ###############################################################
@@ -678,10 +684,20 @@ print "Picorder version " + picorder_version_no
 print "Michael Horne - March 2015"
 print "Using RPi.GPIO version " + GPIO.VERSION
 
+# Tweet out the current timestamp and the IP addresses
 time_stamp = time.time()
 session_id = currentSession()
 
-sendTweet("Picorder Activated at " + str(time_stamp))
+ip_tweet = ""
+for addr in readIPaddresses():
+	ip_tweet = ip_tweet + addr + ", "
+
+try:
+	sendTweet("Picorder activated at " + str(time_stamp) + ". " + ip_tweet)
+
+except Exception as err:
+	print "Unable to send tweet"
+	print err
 
 # GPIO
 GPIO.setmode(GPIO.BCM)
@@ -730,22 +746,27 @@ except:
 
 #######################################################
 # BerryIMU
-SETTINGS_FILE = "RTIMULib"
-#print("Setting up RTIMULib using settings file " + SETTINGS_FILE + ".ini")
-if not os.path.exists(SETTINGS_FILE + ".ini"):
-	print("RTIMULib settings file does not exist, will be created")
 
-s = RTIMU.Settings(SETTINGS_FILE)
-imu = RTIMU.RTIMU(s)
-imu_poll_interval = imu.IMUGetPollInterval()
+BERRYIMU = "BerryIMU" # BerryIMU or RTIMULib
+if BERRYIMU == "RTIMULib":
+	SETTINGS_FILE = "RTIMULib"
+	if not os.path.exists(SETTINGS_FILE + ".ini"):
+		print("RTIMULib settings file does not exist, will be created")
+	
+	s = RTIMU.Settings(SETTINGS_FILE)
+	imu = RTIMU.RTIMU(s)
+	imu_poll_interval = imu.IMUGetPollInterval()
+	
+	print("IMU Name: " + imu.IMUName())
+	
+	if (not imu.IMUInit()):
+		print("IMU Init Failed");
+		sys.exit(1)
+	else:
+		print("IMU Init Succeeded");
 
-print("IMU Name: " + imu.IMUName())
-
-if (not imu.IMUInit()):
-	print("IMU Init Failed");
-	sys.exit(1)
-else:
-	print("IMU Init Succeeded");
+if BERRYIMU == "BerryIMU":
+	imu = BerryIMU()
 
 #######################################################
 # Barometer BMP085
@@ -799,13 +820,11 @@ if __name__ == "__main__":
 	#############################################################
 	# Start-up routine
 
+	# Start a 'heartbeat' on the matrix to show something is working
 	eightByEightHeartbeatAlive = 1
 	threading.Thread(target = eightByEightHeartbeat).start()
 	
 	display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
-	time.sleep(0.2)
-	
-	display("####################", "Picorder v" + picorder_version_no, session_id, "####################")
 	time.sleep(0.2)
 	
 	# GPS
@@ -819,7 +838,7 @@ if __name__ == "__main__":
 		gpsp = GpsPoller()
 		gpsp.start()
 
-	# Kill heartbeat
+	# Kill heartbeat (thread looks for this)
 	eightByEightHeartbeatAlive = 0
 
 	# Start independent processes
@@ -829,12 +848,12 @@ if __name__ == "__main__":
 	threading.Thread(target = gameOfLife).start()
 	threading.Thread(target = bargraphDemo).start()
 
-	operation = 0
-
 	# A key press also advances the operation
+	# Trouble with enabling this is you need to type 'reset' when you've exited to grab the keyboard back
 	#threading.Thread(target = readKey).start()
 
 	SHUTDOWN_FLAG = 0
+	operation = 0
 	while True:
 		print "Current operation: " + str(operation)
 
@@ -868,58 +887,63 @@ if __name__ == "__main__":
 				time.sleep(0.5)
 
 			elif operation == 4:
-				imu_readings = readIMU()
-				display("IMU", "Roll: " + imu_readings['roll'], "Pitch: " + imu_readings['pitch'], "Yaw: " + imu_readings['yaw'])
-				#time.sleep(0.5)
+				if BERRYIMU == "RTIMULib":
+					imu_readings = readIMU()
+					display("IMU", "Roll: " + imu_readings['roll'], "Pitch: " + imu_readings['pitch'], "Yaw: " + imu_readings['yaw'])
+					#time.sleep(0.5)
 
-			elif operation == 4:
-				display("Operation 4", "Not enabled", "", "")
-				#ypr = readMPU6050()
-				#display("MPU accelerometer", "Yaw: " + ypr['yaw'], "Pitch: " + ypr['pitch'], "Roll: " + ypr['roll'])
-				#time.sleep(0.05)
+				elif BERRYIMU == "BerryIMU":
+					imu_readings = imu.getReadings()
+					display("Gyro", "X: " + str(imu_readings["gyroXangle"]), "Y: " + str(imu_readings["gyroYangle"]), "Z: " + str(imu_readings["gyroZangle"]))
 
 			elif operation == 5:
+				if BERRYIMU == "BerryIMU":
+					imu_readings = imu.getReadings()
+					display("CF", "X: " + str(imu_readings["CFangleX"]), "Y: " + str(imu_readings["CFangleY"]), "")
+
+				else:
+					display("Operation not enabled", "", "", "")
+
+			elif operation == 6:
+				if BERRYIMU == "BerryIMU":
+					imu_readings = imu.getReadings()
+					display("Accelerometer", "Roll (X): %.3f" % imu_readings["accXangle"], "Pitch (Y): %.3f" % imu_readings["accYangle"], "")
+
+				else:
+					display("Operation not enabled", "", "", "")
+
+			elif operation == 7:
+				if BERRYIMU == "BerryIMU":
+					imu_readings = imu.getReadings()
+					display("Heading", str(imu_readings["heading"]), "", "")
+
+				else:
+					display("Operation not enabled", "", "", "")
+
+			elif operation == 8:
 				tpa = readBarometer()
 				display("Barometer", tpa['temperature'], tpa['pressure'], tpa['altitude'])
 				time.sleep(0.5)
 
-			elif operation == 6:
+			elif operation == 9:
 				ultrasonic = readUltrasonic()
 				display("Ultrasonic", "Distance", "Measurement", ultrasonic)
 				time.sleep(0.05)
 
-			elif operation == 7:
-				display("Operation 7", "Not enabled", "", "")
-				#reading = readSoundLevel()
-				#display("Microphone", "Sound level", reading[0], reading[1])
-				#time.sleep(0.5)
-
-			elif operation == 8:
-				display("Operation 8", "Not enabled", "", "")
-				#reading = readGSR()
-				#display("Galvanic Skin Resp.", reading[0], reading[1], "")
-				#time.sleep(0.05)
-
-			elif operation == 9:
+			elif operation == 10:
 				mq2 = readMQ2()
 				display("MQ2 sensor", "Combustible gas", mq2[0], mq2[1])
 				time.sleep(0.5)
 
-			elif operation == 10:
+			elif operation == 11:
 				reading = readMoisture()
 				display("Moisture", reading[0], reading[1], "")
 				time.sleep(0.5)
 
-			elif operation == 11:
+			elif operation == 12:
 				readings = readSystemTemperatures()
 				display("System temperatures", readings[0], readings[1], "")
 				time.sleep(1)
-
-			elif operation == 12:
-				display("Operation 12", "Not enabled", "", "")
-				#beats = easypulse.readPulse()
-				#heartrate = easypulse.computeHeartrate(beats)
-				#display("Heartbeat/Pulse", "Beats: " + str(len(beats)), "Heartrate: " + str(heartrate), "")
 
 			elif operation == 13:
 				mq3 = readMQ3()
