@@ -2,9 +2,6 @@
 
 from __future__ import division
 import RPi.GPIO as GPIO
-#from PyComms import hmc5883l
-#from PyComms import mpu6050
-#import TMP102
 import lcddriver
 import math
 import commands
@@ -14,18 +11,18 @@ import threading
 import sys
 import termios
 import tty
-import twitter
 import RTIMU
 import random
+import tweepy
 from smbus import SMBus
 from datetime import datetime
 from gps import *
 from Adafruit_BMP085 import BMP085
-from EasyPulse import EasyPulse
 from Adafruit_7Segment import SevenSegment
 from Adafruit_8x8 import EightByEight
 from Adafruit_Bargraph import Bargraph
 from BerryIMU import BerryIMU
+import xively
 
 # This doesn't work. It conflicts with something that is being imported
 # If it's a choice between sensors and sound, I choose sound any day
@@ -42,10 +39,6 @@ from BerryIMU import BerryIMU
 #        print "Playing"
 
 #exit(0)
-
-
-
-
 
 LCD_ENABLED = True
 
@@ -230,78 +223,6 @@ def gameOfLife():
 			pass
 		time.sleep(1)
 
-
-###############################################################
-# HMC reading
-def readHMC5883L():
-        try:
-                data = hmc.getHeading()
-                reading = {}
-                reading['yaw'] = "%.0f" % data['z']
-                reading['pitch'] = "%.0f" % data['y']
-                reading['roll'] = "%.0f" % data['x']
-
-        except:
-                reading = {}
-                reading['yaw'] = -1
-                reading['pitch'] = -1
-                reading['roll'] = -1
-
-        return reading
-
-###############################################################
-# MPU reading
-def readMPU6050():
-        # Sensor initialization
-
-        # get expected DMP packet size for later comparison
-        packetSize = mpu.dmpGetFIFOPacketSize()
-
-        try:
-                while True:
-                        # Get INT_STATUS byte
-                        mpuIntStatus = mpu.getIntStatus()
-
-                        if mpuIntStatus >= 2: # check for DMP data ready interrupt (this should happen frequently)
-                                # get current FIFO count
-                                fifoCount = mpu.getFIFOCount()
-
-                                # check for overflow (this should never happen unless our code is too inefficient)
-                                if fifoCount == 1024:
-                                        # reset so we can continue cleanly
-                                        mpu.resetFIFO()
-                                        #print('FIFO overflow!')
-
-
-                                # wait for correct available data length, should be a VERY short wait
-                                fifoCount = mpu.getFIFOCount()
-                                while fifoCount < packetSize:
-                                        fifoCount = mpu.getFIFOCount()
-
-                                result = mpu.getFIFOBytes(packetSize)
-                                q = mpu.dmpGetQuaternion(result)
-                                g = mpu.dmpGetGravity(q)
-                                ypr = mpu.dmpGetYawPitchRoll(q, g)
-
-                                reading = {}
-                                reading['yaw'] = "%.2f" % (ypr['yaw'] * 180 / math.pi)
-                                reading['pitch'] = "%.2f" % (ypr['pitch'] * 180 / math.pi)
-                                reading['roll'] = "%.2f" % (ypr['roll'] * 180 / math.pi)
-
-                                # track FIFO count here in case there is > 1 packet available
-                                # (this lets us immediately read more without waiting for an interrupt)
-                                fifoCount -= packetSize
-                                # break when you have a reading
-                                return reading
-        except:
-                reading = {}
-                reading['yaw'] = -1
-                reading['pitch'] = -1
-                reading['roll'] = -1
-
-                return reading
-
-
 ###############################################################
 # GPS
 class GpsPoller(threading.Thread):
@@ -319,6 +240,8 @@ class GpsPoller(threading.Thread):
 
 
 ###########################################################
+# Barometer BMP085
+bmp = BMP085(0x77, 0)
 def readBarometer():
 	try:
 		temp = bmp.readTemperature()
@@ -333,16 +256,17 @@ def readBarometer():
 		reading['temperature'] = str_temp
 		reading['pressure'] = str_pressure
 		reading['altitude'] = str_altitude
+		reading['raw_temperature'] = temp
+		reading['raw_pressure'] = pressure
+		reading['raw_altitude'] = altitude
 
-	except:
-		pass
+	except Exception as err:
+		print err
+		reading['temperature'] = -1
+		reading['pressure'] = -1
+		reading['altitude'] = -1
 
 	return reading
-
-
-
-
-
 
 ###########################################################
 def readCoordinates():
@@ -382,9 +306,6 @@ def readCoordinates():
                 pass
 
         return coords
-
-
-
 
 ###############################################################
 # ULTRASONIC
@@ -473,7 +394,6 @@ def readUltrasonic():
 
         return return_text
 
-
 ###############################################################
 # General A2D read
 # read SPI data from MCP3008 chip, 8 possible adc's (0 thru 7)
@@ -535,18 +455,6 @@ def readAnalogSensor(PIN):
 
 
 ###############################################################
-# MICROPHONE/SOUND LEVEL
-def readSoundLevel():
-	return readAnalogSensor(PIN_MICR)
-
-
-###############################################################
-# Read Galvanic Skin Response sensor
-def readGSR():
-	return readAnalogSensor(PIN_GSR)
-
-
-###############################################################
 # Read MQ7
 def readMQ7():
 	return readAnalogSensor(PIN_MQ7)
@@ -580,6 +488,7 @@ def readSystemTemperatures():
 
 ###############################################################
 # Read IMU board
+# Using RTIMULib
 def readIMU():
 	imu_readings = {}
 	imu_readings['roll'] = "%.0f" % -1
@@ -640,20 +549,22 @@ def readKey():
 # TWITTER
 def sendTweet(message):
 	try:
-		twitter_api.PostUpdate(message)
+		twitter_api.update_status(status=message)
+
         except Exception as err:
 		print "Failed to send tweet"
 		print err
-		pass
 
 def readLastTweet():
 	try:
-		twitter_statuses = twitter_api.GetUserTimeline('picorder')
-		last_status = twitter_statuses[0].text
-	except:
-		last_status = "Check connection"
+		tweets = twitter_api.mentions_timeline()
+		last_tweet = tweets[0].text
 
-	return last_status
+	except Exception as err:
+		print err
+		last_tweet = "Unable to read tweet - " + str(err.message)
+
+	return last_tweet
 
 ###############################################################
 def playTricorderSound():
@@ -661,22 +572,77 @@ def playTricorderSound():
 	sound.play(loops=-1)
 
 ###############################################################
+# Data streaming
+FEED_ID = "482486897"
+API_KEY = "nBBS1N1dIYIzHVAj7DuXjJrReUGK9xBdCWfZBXkgeVYTRsno"
+xively = xively.XivelyAPIClient(API_KEY)
+
+def get_datastream(feed, stream_name):
+	try:
+		datastream = feed.datastreams.get(stream_name)
+		#print "Found existing datastream"
+
+	except:
+		datastream = feed.datastreams.create(stream_name, tags=stream_name + "_01")
+		#print "Creating new datastream"
+ 
+	return datastream
+
+def streamReadings():
+	print "Streaming readings to Xively feed " + FEED_ID
+	feed = xively.feeds.get(FEED_ID)
+
+	datastreams = {}
+	datastreams["temperature"] = get_datastream(feed, "Temperature")
+	datastreams["temperature"].min_value = None
+	datastreams["temperature"].max_value = None
+	datastreams["altitude"] = get_datastream(feed, "Altitude")
+	datastreams["altitude"].min_value = None
+	datastreams["altitude"].max_value = None
+	datastreams["pressure"] = get_datastream(feed, "Pressure")
+	datastreams["pressure"].min_value = None
+	datastreams["pressure"].max_value = None
+
+	while True:
+		tpa = readBarometer()
+		datastreams["temperature"].current_value = tpa["raw_temperature"]
+		datastreams["temperature"].at = datetime.utcnow()
+		datastreams["altitude"].current_value = tpa["raw_altitude"]
+		datastreams["altitude"].at = datetime.utcnow()
+		datastreams["pressure"].current_value = tpa["raw_pressure"]
+		datastreams["pressure"].at = datetime.utcnow()
+
+		try:
+			datastreams["temperature"].update()
+			datastreams["altitude"].update()
+			datastreams["pressure"].update()
+
+		except requests.HTTPError as e:
+			print "HTTPError({0}): {1}".format(e.errno, e.strerror)
+
+		if thread_keep_alive == 0:
+			print "Streaming shutdown"
+			break
+
+		time.sleep(10)
+
+###############################################################
 # INIT SECTION
 DEBUG=1
 
-# TWITTER SET-UP
-CONSUMER_KEY = '4dg3D0FRULTUMCWyUytmsg'
-CONSUMER_SECRET = 'yqgk7hqpBxkQwJzvtUnK2E0rDPLqI5JSuv54qsA8'
-ACCESS_KEY = '1911720504-8audXV5cs0Wt2cmFaKmAyPbytSc3vFnonpOd9Tg'
-ACCESS_SECRET = 'T1yNOP1ZAeI0MGriTB8ERBDYDhrfJxorRZeqUWV3q10'
 
-try:
-	twitter_api = twitter.Api(consumer_key=CONSUMER_KEY, consumer_secret=CONSUMER_SECRET, access_token_key=ACCESS_KEY, access_token_secret=ACCESS_SECRET)
+# Consumer keys and access tokens, used for OAuth
+consumer_key = '4dg3D0FRULTUMCWyUytmsg'
+consumer_secret = 'yqgk7hqpBxkQwJzvtUnK2E0rDPLqI5JSuv54qsA8'
+access_token = '1911720504-8audXV5cs0Wt2cmFaKmAyPbytSc3vFnonpOd9Tg'
+access_token_secret = 'T1yNOP1ZAeI0MGriTB8ERBDYDhrfJxorRZeqUWV3q10'
 
-except Exception as err:
-	print "Unable to instantiate Twitter API"
-	print err
-	pass
+# OAuth process, using the keys and tokens
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+
+# Creation of the actual interface, using authentication
+twitter_api = tweepy.API(auth)
 
 ###############################################################
 picorder_version_no = "1 HAT"
@@ -727,23 +693,6 @@ try:
 except:
 	print "Bargraph failed to initialize"
 
-
-# ACCEL NUMBER 1
-#try:
-#	hmc = hmc5883l.HMC5883L()
-#
-#except:
-#	print "HMC failed to initialise"
-
-# ACCEL NUMBER 2
-#try:
-#	mpu = mpu6050.MPU6050()
-#	mpu.dmpInitialize()
-#	mpu.setDMPEnabled(True)
-
-#except:
-#	print "MPU failed to initialise"
-
 #######################################################
 # BerryIMU
 
@@ -768,9 +717,6 @@ if BERRYIMU == "RTIMULib":
 if BERRYIMU == "BerryIMU":
 	imu = BerryIMU()
 
-#######################################################
-# Barometer BMP085
-bmp = BMP085(0x77, 0)
 
 #######################################################
 # Ultrasonic
@@ -797,10 +743,6 @@ PIN_MQ7 = 1 # Carbon monoxide sensor
 PIN_MQ3 = 2 # Alcohol sensor
 PIN_MQ2 = 3
 
-PIN_MICR = 4
-PIN_GSR = 5
-PIN_EPULSE = 6
-
 #######################################################
 # I2C bus
 bus = SMBus(1)
@@ -809,9 +751,6 @@ bus = SMBus(1)
 # Button
 PIN_SWITCH = 5
 GPIO.setup(PIN_SWITCH, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
-#easypulse = EasyPulse()
-
 
 ###############################################################
 # MAIN
@@ -823,7 +762,7 @@ if __name__ == "__main__":
 	# Start a 'heartbeat' on the matrix to show something is working
 	eightByEightHeartbeatAlive = 1
 	threading.Thread(target = eightByEightHeartbeat).start()
-	
+
 	display("####################", "Picorder v" + picorder_version_no, "Starting up...", "####################")
 	time.sleep(0.2)
 	
@@ -843,6 +782,7 @@ if __name__ == "__main__":
 
 	# Start independent processes
 	thread_keep_alive = 1
+	threading.Thread(target = streamReadings).start()
 	threading.Thread(target = sevenSegmentClock).start()
 	#threading.Thread(target = eightByEightDemo).start()
 	threading.Thread(target = gameOfLife).start()
@@ -950,11 +890,11 @@ if __name__ == "__main__":
 				display("MQ3 sensor", "Alcohol sensor", mq3[0], mq3[1])
 				time.sleep(0.5)
 
-			#elif operation == 13:
-			#	reading = readLastTweet()
-			#	display("Last tweet to @picorder", reading, "", "")
-			#	time.sleep(5)
-			#	iterateOperation()
+			elif operation == 14:
+				reading = readLastTweet()
+				display("Last tweet to @picorder", reading, "", "")
+				time.sleep(5)
+				operation = operation + 1
 
 			else:
 				operation = 0
